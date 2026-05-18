@@ -57,7 +57,7 @@ export function BrainGraph({
   return (
     <div
       ref={wrapRef}
-      className="relative w-full h-[calc(100vh-9rem)] rounded-xl border border-border bg-card overflow-hidden"
+      className="relative w-full h-[60vh] sm:h-[70vh] md:h-[calc(100vh-10rem)] rounded-xl border border-border bg-card overflow-hidden touch-none"
     >
       <ForceGraph2D
         width={size.w}
@@ -73,10 +73,12 @@ export function BrainGraph({
         linkWidth={(l: any) => 0.5 + Math.min(l.weight || 1, 6) * 0.4}
         linkDirectionalParticles={0}
         onNodeHover={(n: any) => setHover(n || null)}
+        onNodeClick={(n: any) => setHover(n || null)}
+        onBackgroundClick={() => setHover(null)}
         nodeCanvasObjectMode={() => "after"}
         nodeCanvasObject={(n: any, ctx, scale) => {
           // draw the label only when zoomed in enough to keep it readable
-          if (scale < 1.5) return;
+          if (scale < 0.9) return;
           const label = n.name as string;
           ctx.font = `${11 / scale}px Instrument Sans, sans-serif`;
           ctx.fillStyle = "#d4e0d5";
@@ -88,7 +90,7 @@ export function BrainGraph({
       />
 
       {/* legend / hover readout */}
-      <div className="absolute top-3 left-3 text-xs text-muted bg-dark/80 backdrop-blur px-3 py-2 rounded-lg border border-border">
+      <div className="absolute top-3 left-3 right-3 sm:right-auto text-xs text-muted bg-dark/80 backdrop-blur px-3 py-2 rounded-lg border border-border">
         {hover ? (
           <span className="text-text">
             <span className="text-white font-medium">{hover.name}</span>
@@ -97,8 +99,13 @@ export function BrainGraph({
           </span>
         ) : (
           <span>
-            {nodes.length} entidades · {links.length} relaciones — pasa el
-            cursor sobre un nodo
+            <span className="hidden sm:inline">
+              {nodes.length} entidades · {links.length} relaciones — pasa el
+              cursor o toca un nodo
+            </span>
+            <span className="sm:hidden">
+              {nodes.length} entidades · toca un nodo
+            </span>
           </span>
         )}
       </div>

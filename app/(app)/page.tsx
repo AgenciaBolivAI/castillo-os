@@ -35,9 +35,9 @@ export default async function FleetPage() {
   const rows = (data ?? []) as FleetRow[];
 
   return (
-    <div className="p-8 max-w-6xl">
-      <header className="mb-8">
-        <h1 className="font-display text-3xl font-extrabold tracking-tight text-white">
+    <div className="p-4 sm:p-6 md:p-8 max-w-6xl">
+      <header className="mb-6 md:mb-8">
+        <h1 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
           Agent Fleet
         </h1>
         <p className="text-sm text-muted mt-1">

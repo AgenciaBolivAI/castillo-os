@@ -24,7 +24,7 @@ export function LoginForm() {
           autoComplete="current-password"
           autoFocus
           required
-          className="bg-surface border border-border rounded-lg px-3.5 py-2.5 text-sm
+          className="bg-surface border border-border rounded-lg px-3.5 py-3 text-base sm:text-sm
                      focus:outline-none focus:border-green transition-colors"
         />
       </div>
@@ -38,8 +38,8 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={pending}
-        className="bg-green text-black font-display font-bold text-sm rounded-lg
-                   py-3 mt-1 transition-all hover:bg-green-dim disabled:opacity-60"
+        className="bg-green text-black font-display font-bold text-base sm:text-sm rounded-lg
+                   py-3.5 mt-1 transition-all hover:bg-green-dim active:bg-green-dim disabled:opacity-60"
       >
         {pending ? "Entrando…" : "Entrar"}
       </button>

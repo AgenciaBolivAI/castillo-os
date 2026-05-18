@@ -33,9 +33,9 @@ export default async function BriefingsPage() {
   const briefings = (data ?? []) as Briefing[];
 
   return (
-    <div className="p-8 max-w-3xl">
-      <header className="mb-8">
-        <h1 className="font-display text-3xl font-extrabold tracking-tight text-white">
+    <div className="p-4 sm:p-6 md:p-8 max-w-3xl">
+      <header className="mb-6 md:mb-8">
+        <h1 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
           Briefings
         </h1>
         <p className="text-sm text-muted mt-1">
@@ -63,7 +63,7 @@ export default async function BriefingsPage() {
               key={b.id}
               className="bg-card border border-border rounded-xl p-5"
             >
-              <div className="flex items-center justify-between gap-3 mb-3">
+              <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
                 <time className="text-xs uppercase tracking-wider text-muted2">
                   {fmt(b.created_at)}
                 </time>
@@ -77,7 +77,7 @@ export default async function BriefingsPage() {
                   {b.delivered ? "Enviado" : "No enviado"}
                 </span>
               </div>
-              <pre className="text-sm text-text whitespace-pre-wrap font-sans leading-relaxed">
+              <pre className="text-sm text-text whitespace-pre-wrap break-words font-sans leading-relaxed">
                 {b.content}
               </pre>
             </article>

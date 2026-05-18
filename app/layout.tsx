@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Instrument_Sans, Syne } from "next/font/google";
 import "./globals.css";
 
@@ -20,6 +20,13 @@ export const metadata: Metadata = {
   title: "CastilloOS",
   description: "Personal AI agent fleet — the brain.",
   robots: { index: false, follow: false },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: "#080b09",
 };
 
 export default function RootLayout({

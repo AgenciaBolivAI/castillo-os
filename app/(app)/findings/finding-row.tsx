@@ -56,12 +56,12 @@ export function FindingRow({ finding }: { finding: Finding }) {
         </div>
       </div>
 
-      <div className="flex gap-2 mt-4 pt-3 border-t border-border">
+      <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-border">
         <button
           onClick={() => set("acted")}
           disabled={pending || status === "acted"}
-          className="text-xs px-3 py-1.5 rounded-md border border-border-bright
-                     text-muted hover:text-green hover:border-green transition-colors
+          className="text-xs px-3 py-2 rounded-md border border-border-bright
+                     text-muted hover:text-green hover:border-green active:bg-card transition-colors
                      disabled:opacity-40"
         >
           Marcar resuelto
@@ -69,8 +69,8 @@ export function FindingRow({ finding }: { finding: Finding }) {
         <button
           onClick={() => set("dismissed")}
           disabled={pending}
-          className="text-xs px-3 py-1.5 rounded-md border border-border-bright
-                     text-muted hover:text-red-400 hover:border-red-900 transition-colors
+          className="text-xs px-3 py-2 rounded-md border border-border-bright
+                     text-muted hover:text-red-400 hover:border-red-900 active:bg-card transition-colors
                      disabled:opacity-40"
         >
           Descartar

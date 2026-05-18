@@ -50,9 +50,9 @@ export default async function BrainPage() {
     }));
 
   return (
-    <div className="p-8">
-      <header className="mb-6">
-        <h1 className="font-display text-3xl font-extrabold tracking-tight text-white">
+    <div className="p-4 sm:p-6 md:p-8">
+      <header className="mb-4 md:mb-6">
+        <h1 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
           Brain Graph
         </h1>
         <p className="text-sm text-muted mt-1">
