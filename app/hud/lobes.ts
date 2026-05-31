@@ -161,6 +161,11 @@ export function pathForEvent(
   agentSlug: string,
   source: string | null,
 ): LobeId[] | null {
+  // Source-driven overrides come first.
+  // An action queued by ATLAS lands in the Motor lobe — visual story:
+  // "ATLAS dispatched something to the user's machine."
+  if (source === "action") return ["motor"];
+
   switch (agentSlug) {
     case "hermes":
       // tick.json → BolivAI episode lands in Memory via Sensory

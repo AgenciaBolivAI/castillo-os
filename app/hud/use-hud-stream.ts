@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { create } from "zustand";
+import { summarizeActionPayload } from "@/lib/hud-actions";
 import type { SeedEvent } from "./activity-feed";
 
 /**
@@ -148,6 +149,39 @@ export function useHudStream(seed: SeedEvent[]) {
       }
     };
 
+    const onAction = (e: MessageEvent) => {
+      try {
+        const row = JSON.parse(e.data) as {
+          id: string;
+          device_id: string;
+          action_kind: string;
+          status: string;
+          payload: Record<string, unknown>;
+          created_at: string;
+        };
+        const summary = summarizeActionPayload(row.action_kind, row.payload);
+        pushFeed({
+          kind: "action",
+          id: row.id,
+          device_id: row.device_id,
+          action_kind: row.action_kind,
+          status: row.status,
+          summary,
+          created_at: row.created_at,
+        });
+        // Fly ATLAS to the Motor lobe to dispatch this action.
+        queueAnimation({
+          id: row.id,
+          agent_slug: "atlas",
+          source: "action",
+          title: summary,
+          created_at: row.created_at,
+        });
+      } catch {
+        /* ignore */
+      }
+    };
+
     const onDeepSleep = (e: MessageEvent) => {
       try {
         const row = JSON.parse(e.data) as {
@@ -184,11 +218,13 @@ export function useHudStream(seed: SeedEvent[]) {
     es.addEventListener("episode", onEpisode);
     es.addEventListener("finding", onFinding);
     es.addEventListener("deep_sleep", onDeepSleep);
+    es.addEventListener("action", onAction);
 
     return () => {
       es.removeEventListener("episode", onEpisode);
       es.removeEventListener("finding", onFinding);
       es.removeEventListener("deep_sleep", onDeepSleep);
+      es.removeEventListener("action", onAction);
       activeRefs -= 1;
       if (activeRefs <= 0 && activeSource) {
         activeSource.close();

@@ -23,6 +23,15 @@ export type SeedEvent =
       title: string;
       importance: string;
       created_at: string;
+    }
+  | {
+      kind: "action";
+      id: string;
+      device_id: string;
+      action_kind: string;
+      status: string;
+      summary: string;
+      created_at: string;
     };
 
 function relativeTime(iso: string): string {
@@ -39,6 +48,19 @@ const IMPORTANCE_DOT: Record<string, string> = {
   high: "#ef4444",
   medium: "#00e5a0",
   low: "#4a5e4c",
+};
+
+const ACTION_DOT = "#fb7185"; // matches Motor lobe / agent-MOTOR family
+
+const ACTION_LABEL: Record<string, string> = {
+  open_app: "open app",
+  open_url: "open url",
+  play_spotify: "spotify",
+  type_text: "type",
+  run_routine: "routine",
+  screenshot: "screenshot",
+  notify: "notify",
+  tts_speak: "speak",
 };
 
 export function ActivityFeed({ seed }: { seed: SeedEvent[] }) {
@@ -86,6 +108,34 @@ export function ActivityFeed({ seed }: { seed: SeedEvent[] }) {
                     {visual?.name ?? item.agent_slug}
                   </span>
                   <span className="flex-1 text-text truncate">{item.title}</span>
+                  <span className="text-muted2 text-[10px] tabular-nums shrink-0">
+                    {relativeTime(item.created_at)}
+                  </span>
+                </li>
+              );
+            }
+            if (item.kind === "action") {
+              return (
+                <li
+                  key={`a-${item.id}`}
+                  className="flex items-start gap-2 text-xs leading-snug"
+                >
+                  <span
+                    className="mt-1 inline-block w-1.5 h-1.5 rounded-full shrink-0"
+                    style={{
+                      backgroundColor: ACTION_DOT,
+                      boxShadow: `0 0 4px ${ACTION_DOT}`,
+                    }}
+                  />
+                  <span className="text-muted2 uppercase tracking-wider text-[10px] font-bold shrink-0 w-12">
+                    ACT
+                  </span>
+                  <span className="flex-1 text-text truncate">
+                    <span className="text-muted2 mr-1">
+                      {ACTION_LABEL[item.action_kind] ?? item.action_kind}:
+                    </span>
+                    {item.summary}
+                  </span>
                   <span className="text-muted2 text-[10px] tabular-nums shrink-0">
                     {relativeTime(item.created_at)}
                   </span>

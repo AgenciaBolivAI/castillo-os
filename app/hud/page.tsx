@@ -1,4 +1,5 @@
 import { brainClient } from "@/lib/supabase";
+import { summarizeActionPayload } from "@/lib/hud-actions";
 import { HudCanvas } from "./hud-canvas";
 import { ActivityFeed, type SeedEvent } from "./activity-feed";
 import { StatusPanels } from "./status-panels";
@@ -34,6 +35,15 @@ type FindingRow = {
 
 type AgentLookup = { id: string; slug: string };
 
+type ActionRow = {
+  id: string;
+  device_id: string;
+  kind: string;
+  payload: Record<string, unknown> | null;
+  status: string;
+  created_at: string;
+};
+
 async function loadHudData() {
   const brain = brainClient();
 
@@ -42,12 +52,14 @@ async function loadHudData() {
     { data: agents },
     { data: episodes },
     { data: findings },
+    { data: actions },
     { data: weekEpisodes },
   ] = await Promise.all([
     brain.rpc("fleet_stats"),
     brain.from("agents").select("id, slug"),
     brain.from("episodes").select("id, agent_id, source, title, created_at").order("created_at", { ascending: false }).limit(15),
     brain.from("findings").select("id, title, importance, status, created_at").in("status", ["new", "surfaced", "acted"]).order("created_at", { ascending: false }).limit(8),
+    brain.from("action_queue").select("id, device_id, kind, payload, status, created_at").order("created_at", { ascending: false }).limit(10),
     brain.from("episodes").select("id, created_at").gte("created_at", new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString()),
   ]);
 
@@ -72,9 +84,18 @@ async function loadHudData() {
       importance: f.importance ?? "low",
       created_at: f.created_at,
     })),
+    ...((actions ?? []) as ActionRow[]).map((a) => ({
+      kind: "action" as const,
+      id: a.id,
+      device_id: a.device_id,
+      action_kind: a.kind,
+      status: a.status,
+      summary: summarizeActionPayload(a.kind, a.payload),
+      created_at: a.created_at,
+    })),
   ]
     .sort((a, b) => (b.created_at > a.created_at ? 1 : -1))
-    .slice(0, 20);
+    .slice(0, 25);
 
   return {
     fleet: (fleet ?? []) as FleetRow[],

@@ -68,6 +68,7 @@ export async function GET(req: NextRequest) {
         ep: startedAt,
         find: startedAt,
         ds: startedAt,
+        act: startedAt,
       };
 
       const heartbeat = setInterval(() => {
@@ -160,6 +161,36 @@ export async function GET(req: NextRequest) {
                   ran_at: row.ran_at,
                 });
                 cursors.ds = row.ran_at;
+              }
+            }
+          }
+
+          // Action queue — newly created automation intents
+          {
+            const { data, error } = await brain
+              .from("action_queue")
+              .select("id, device_id, kind, payload, status, created_at")
+              .gt("created_at", cursors.act)
+              .order("created_at", { ascending: true })
+              .limit(10);
+            if (!error && data) {
+              for (const row of data as Array<{
+                id: string;
+                device_id: string;
+                kind: string;
+                payload: Record<string, unknown>;
+                status: string;
+                created_at: string;
+              }>) {
+                send("action", {
+                  id: row.id,
+                  device_id: row.device_id,
+                  action_kind: row.kind,
+                  status: row.status,
+                  payload: row.payload,
+                  created_at: row.created_at,
+                });
+                cursors.act = row.created_at;
               }
             }
           }
