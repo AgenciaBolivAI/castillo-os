@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { create } from "zustand";
 import { summarizeActionPayload } from "@/lib/hud-actions";
 import type { SeedEvent } from "./activity-feed";
+import type { LobeId } from "./lobes";
 
 /**
  * Shared HUD state. Holds the rolling feed for the right-side log AND
@@ -12,6 +13,10 @@ import type { SeedEvent } from "./activity-feed";
  * One EventSource lives in <HudCanvas /> and pushes into this store.
  * Multiple consumer components subscribe via the hooks below — zustand
  * gives us fine-grained re-renders without prop drilling.
+ *
+ * Edge-pulse signals are kept OUTSIDE zustand on a module-level Map so
+ * AgentOrb can fire them from useFrame without triggering a re-render
+ * on every animation tick. Edges read the same Map per frame.
  */
 
 export type AnimationEvent = {
@@ -24,14 +29,21 @@ export type AnimationEvent = {
   created_at: string;
 };
 
+export type SelectedTarget =
+  | { kind: "lobe"; id: LobeId }
+  | { kind: "agent"; slug: string }
+  | null;
+
 type HudStreamState = {
   feed: SeedEvent[];
   /** Per-agent queue. We never drop — agents drain at their own pace. */
   pendingByAgent: Record<string, AnimationEvent[]>;
+  selected: SelectedTarget;
   setSeed: (events: SeedEvent[]) => void;
   pushFeed: (event: SeedEvent) => void;
   queueAnimation: (event: AnimationEvent) => void;
   claimAnimation: (slug: string) => AnimationEvent | null;
+  setSelected: (target: SelectedTarget) => void;
 };
 
 const FEED_CAP = 40;
@@ -40,6 +52,7 @@ const PER_AGENT_CAP = 12;
 export const useHudStreamStore = create<HudStreamState>((set, get) => ({
   feed: [],
   pendingByAgent: {},
+  selected: null,
   setSeed: (events) => set({ feed: events.slice(0, FEED_CAP) }),
   pushFeed: (event) =>
     set((s) => {
@@ -69,7 +82,37 @@ export const useHudStreamStore = create<HudStreamState>((set, get) => ({
     }));
     return head;
   },
+  setSelected: (target) => set({ selected: target }),
 }));
+
+// ── Edge pulse signal (module-level, no React state) ──────────────────
+// Energies live in this Map, keyed by sorted "lobeA:lobeB". Each frame
+// Edges reads + decays them. AgentOrb writes when starting a new path.
+
+const edgePulses = new Map<string, number>();
+
+function edgeKey(a: LobeId | string, b: LobeId | string): string {
+  return [a, b].sort().join(":");
+}
+
+export function pulseEdge(a: LobeId | string, b: LobeId | string): void {
+  edgePulses.set(edgeKey(a, b), 1);
+}
+
+export function readEdgePulse(a: LobeId | string, b: LobeId | string): number {
+  return edgePulses.get(edgeKey(a, b)) ?? 0;
+}
+
+/** Multiplicative decay; called once per frame from Edges. */
+export function decayEdgePulses(delta: number): void {
+  // Half-life ~0.55s so pulses stay visible for about a second.
+  const factor = Math.exp(-delta * 1.25);
+  for (const [k, v] of edgePulses) {
+    const next = v * factor;
+    if (next < 0.015) edgePulses.delete(k);
+    else edgePulses.set(k, next);
+  }
+}
 
 /**
  * Subscribe to the HUD SSE stream. Mount this once at the top of the

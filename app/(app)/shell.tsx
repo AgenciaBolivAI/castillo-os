@@ -10,6 +10,7 @@ const NAV = [
   { href: "/brain", label: "Brain Graph", icon: "✦" },
   { href: "/findings", label: "Findings", icon: "◎" },
   { href: "/briefings", label: "Briefings", icon: "✉" },
+  { href: "/routines", label: "Routines", icon: "⟳" },
 ];
 
 export function Shell({ children }: { children: React.ReactNode }) {

@@ -35,7 +35,11 @@ import {
   type AgentVisual,
   type LobeId,
 } from "./lobes";
-import { useHudStreamStore, type AnimationEvent } from "./use-hud-stream";
+import {
+  useHudStreamStore,
+  pulseEdge,
+  type AnimationEvent,
+} from "./use-hud-stream";
 
 type Anim = {
   curve: CatmullRomCurve3;
@@ -70,6 +74,20 @@ function buildAnim(
     if (lobe) waypoints.push(new Vector3(...lobe.position));
   }
   waypoints.push(home);
+
+  // Fire edge-pulse signals for the connector lines the orb is about
+  // to traverse — Edges reads these and brightens the matching lines.
+  // The "world" / home position doesn't correspond to a lobe so we
+  // only pulse lobe→lobe pairs (consecutive entries in the path).
+  for (let i = 0; i < path.length - 1; i++) {
+    pulseEdge(path[i], path[i + 1]);
+  }
+  // Bridge into / out of the home lobe (if the agent has one) too —
+  // makes the round trip visible on the wire.
+  if (visual.home !== "world" && path.length > 0) {
+    pulseEdge(visual.home, path[0]);
+    pulseEdge(path[path.length - 1], visual.home);
+  }
 
   // Catmull-Rom needs at least 2 points; pad slightly if user gave only
   // a single waypoint between the two homes.
@@ -171,8 +189,19 @@ function AgentOrb({ visual }: { visual: AgentVisual }) {
     }
   });
 
+  const setSelected = useHudStreamStore((s) => s.setSelected);
+  const handleClick = (e: { stopPropagation: () => void }) => {
+    e.stopPropagation();
+    setSelected({ kind: "agent", slug: visual.slug });
+  };
+
   return (
-    <group ref={groupRef} name={`agent-${visual.slug}`}>
+    <group ref={groupRef} name={`agent-${visual.slug}`} onClick={handleClick}>
+      {/* Generous invisible hit-sphere so the orb is easy to click on a wall TV. */}
+      <mesh visible={false}>
+        <sphereGeometry args={[0.28, 8, 8]} />
+        <meshBasicMaterial transparent opacity={0} />
+      </mesh>
       {/* Core orb */}
       <mesh>
         <sphereGeometry args={[0.09, 20, 20]} />

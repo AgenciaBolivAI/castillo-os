@@ -4,6 +4,7 @@ import { HudCanvas } from "./hud-canvas";
 import { ActivityFeed, type SeedEvent } from "./activity-feed";
 import { StatusPanels } from "./status-panels";
 import { HudClock } from "./hud-clock";
+import { InspectorPanel } from "./inspector-panel";
 
 type FleetRow = {
   slug: string | null;
@@ -149,9 +150,12 @@ export default async function HudPage() {
         <ActivityFeed seed={seed} />
       </aside>
 
+      {/* Click-inspect overlay — only visible when a lobe or agent is selected */}
+      <InspectorPanel />
+
       {/* Bottom subtitle */}
       <footer className="absolute bottom-3 inset-x-0 flex items-center justify-center text-[10px] uppercase tracking-[0.3em] text-muted2 z-20">
-        <span>Brain online · listening for &quot;Hey Atlas&quot;</span>
+        <span>Brain online · listening for &quot;Hey Atlas&quot; · scroll to zoom · drag to orbit · click a lobe or agent</span>
       </footer>
     </div>
   );

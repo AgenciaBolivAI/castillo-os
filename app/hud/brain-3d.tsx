@@ -27,8 +27,14 @@ import {
   Group,
   BufferGeometry,
   Float32BufferAttribute,
+  LineBasicMaterial,
 } from "three";
-import { LOBES, type Lobe } from "./lobes";
+import { LOBES, type Lobe, type LobeId } from "./lobes";
+import {
+  useHudStreamStore,
+  readEdgePulse,
+  decayEdgePulses,
+} from "./use-hud-stream";
 
 /**
  * ~6000 particles split into per-lobe nebulae + a thin "drifters" cloud
@@ -209,6 +215,7 @@ function Synapses() {
 
 function LobeSphere({ lobe }: { lobe: Lobe }) {
   const ref = useRef<Group>(null);
+  const setSelected = useHudStreamStore((s) => s.setSelected);
   useFrame((state) => {
     if (!ref.current) return;
     // Gentle scale pulse
@@ -217,8 +224,22 @@ function LobeSphere({ lobe }: { lobe: Lobe }) {
     ref.current.scale.setScalar(s);
   });
 
+  const handleClick = (e: { stopPropagation: () => void }) => {
+    e.stopPropagation();
+    setSelected({ kind: "lobe", id: lobe.id });
+  };
+
   return (
-    <group ref={ref} position={lobe.position}>
+    <group
+      ref={ref}
+      position={lobe.position}
+      onClick={handleClick}
+    >
+      {/* Invisible hit-sphere sized to the outer halo so the whole lobe is clickable. */}
+      <mesh visible={false}>
+        <sphereGeometry args={[lobe.radius * 1.5, 12, 12]} />
+        <meshBasicMaterial transparent opacity={0} />
+      </mesh>
       {/* Bright nugget at center — small but full-bright, drives the bloom. */}
       <mesh>
         <sphereGeometry args={[lobe.radius * 0.3, 24, 24]} />
@@ -288,9 +309,11 @@ function LobeSphere({ lobe }: { lobe: Lobe }) {
 /**
  * Curved connector lines between every pair of lobes that share a
  * conceptual relationship. Drawn as Catmull-Rom curves with a slight
- * bulge so they don't look like straight wires.
+ * bulge so they don't look like straight wires. Exported so other UI
+ * (e.g., inspector panel showing "connections from this lobe") can
+ * read the same topology.
  */
-const EDGE_PAIRS: [string, string][] = [
+export const EDGE_PAIRS: [LobeId, LobeId][] = [
   ["prefrontal", "language"],
   ["prefrontal", "hippocampus"],
   ["language", "hippocampus"],
@@ -304,9 +327,18 @@ const EDGE_PAIRS: [string, string][] = [
   ["reflex", "memory"],
 ];
 
+type EdgeSegment = {
+  from: LobeId;
+  to: LobeId;
+  geom: BufferGeometry;
+  baseColor: Color;
+  pulseColor: Color;
+  material: LineBasicMaterial;
+};
+
 function Edges() {
   const lookup = useMemo(() => Object.fromEntries(LOBES.map((l) => [l.id, l])), []);
-  const segments = useMemo(() => {
+  const segments = useMemo<EdgeSegment[]>(() => {
     return EDGE_PAIRS.map(([a, b]) => {
       const la = lookup[a];
       const lb = lookup[b];
@@ -323,21 +355,41 @@ function Edges() {
       for (const p of points) positions.push(p.x, p.y, p.z);
       const geom = new BufferGeometry();
       geom.setAttribute("position", new Float32BufferAttribute(positions, 3));
-      return { geom, color: la.color };
-    }).filter(Boolean) as { geom: BufferGeometry; color: string }[];
+      const baseColor = new Color(la.color);
+      const pulseColor = new Color("#ffffff");
+      const material = new LineBasicMaterial({
+        color: baseColor.clone(),
+        transparent: true,
+        opacity: 0.55,
+        toneMapped: false,
+      });
+      return { from: a, to: b, geom, baseColor, pulseColor, material };
+    }).filter(Boolean) as EdgeSegment[];
   }, [lookup]);
+
+  // Animate per-edge opacity + color toward base/pulse depending on
+  // the energy in the module-level pulse Map. Decays the map once
+  // per frame. Cheap — 11 edges, no allocations after init.
+  useFrame((_, delta) => {
+    decayEdgePulses(delta);
+    for (const seg of segments) {
+      const energy = readEdgePulse(seg.from, seg.to);
+      const opacity = 0.45 + 0.55 * energy;
+      seg.material.opacity = opacity;
+      // Blend toward white at peak — makes it read as "activity firing".
+      seg.material.color
+        .copy(seg.baseColor)
+        .lerp(seg.pulseColor, Math.min(energy * 0.9, 0.85));
+      seg.material.needsUpdate = true;
+    }
+  });
 
   return (
     <group>
       {segments.map((seg, i) => (
         <line key={i}>
           <primitive object={seg.geom} attach="geometry" />
-          <lineBasicMaterial
-            color={seg.color}
-            transparent
-            opacity={0.35}
-            toneMapped={false}
-          />
+          <primitive object={seg.material} attach="material" />
         </line>
       ))}
     </group>
@@ -345,15 +397,13 @@ function Edges() {
 }
 
 export function BrainScene() {
-  const group = useRef<Group>(null);
-  // Slow rotation so every lobe sweeps into view over ~40 seconds.
-  useFrame((_, delta) => {
-    if (!group.current) return;
-    group.current.rotation.y += delta * 0.08;
-  });
-
+  // The brain group is stationary — OrbitControls in hud-canvas.tsx
+  // auto-rotates the CAMERA instead, which fixes a latent bug where
+  // agent orbs (siblings of the brain group) drifted out of sync with
+  // the rotating lobes. The auto-rotate continues until the user grabs
+  // the mouse, then resumes after a few seconds of inactivity.
   return (
-    <group ref={group} name="brain-group">
+    <group name="brain-group">
       <Synapses />
       <Edges />
       {LOBES.map((l) => (
