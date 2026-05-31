@@ -38,10 +38,11 @@ export function HudCanvas({ seed }: { seed: SeedEvent[] }) {
 
         <EffectComposer>
           <Bloom
-            intensity={1.4}
-            luminanceThreshold={0.15}
-            luminanceSmoothing={0.7}
+            intensity={2.2}
+            luminanceThreshold={0.08}
+            luminanceSmoothing={0.85}
             mipmapBlur
+            radius={0.9}
           />
         </EffectComposer>
       </Canvas>
