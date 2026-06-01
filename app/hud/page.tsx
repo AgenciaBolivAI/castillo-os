@@ -45,8 +45,42 @@ type ActionRow = {
   created_at: string;
 };
 
+type TopEntityRow = {
+  name: string;
+  type: string;
+  mention_count: number;
+  summary: string | null;
+};
+
+export type BrainStats = {
+  episodes: number;
+  entities: number;
+  edges: number;
+  findings: number;
+  deep_sleep_runs: number;
+  briefings: number;
+  skills: number;
+  routines: number;
+  actions: number;
+  top_entities: { name: string; type: string; mentions: number; summary: string }[];
+  last_deep_sleep:
+    | {
+        ran_at: string;
+        agent_slug: string;
+        episodes_processed: number;
+        entities_created: number;
+        edges_created: number;
+        findings_created: number;
+      }
+    | null;
+};
+
 async function loadHudData() {
   const brain = brainClient();
+
+  // count=exact + head=true gives us totals without pulling rows.
+  const headCount = (table: string) =>
+    brain.from(table).select("id", { count: "exact", head: true });
 
   const [
     { data: fleet, error: fleetErr },
@@ -55,6 +89,16 @@ async function loadHudData() {
     { data: findings },
     { data: actions },
     { data: weekEpisodes },
+    { data: topEntities },
+    { count: entityCount },
+    { count: edgeCount },
+    { count: findingCountTotal },
+    { count: dsRunCount },
+    { count: briefingCount },
+    { count: skillCount },
+    { count: routineCount },
+    { count: episodeCount },
+    { data: lastDsRun },
   ] = await Promise.all([
     brain.rpc("fleet_stats"),
     brain.from("agents").select("id, slug"),
@@ -62,6 +106,16 @@ async function loadHudData() {
     brain.from("findings").select("id, title, importance, status, created_at").in("status", ["new", "surfaced", "acted"]).order("created_at", { ascending: false }).limit(8),
     brain.from("action_queue").select("id, device_id, kind, payload, status, created_at").order("created_at", { ascending: false }).limit(10),
     brain.from("episodes").select("id, created_at").gte("created_at", new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString()),
+    brain.from("entities").select("name, type, mention_count, summary").order("mention_count", { ascending: false }).limit(12),
+    headCount("entities"),
+    headCount("edges"),
+    headCount("findings"),
+    headCount("deep_sleep_runs"),
+    headCount("briefings"),
+    headCount("skills"),
+    headCount("routines"),
+    headCount("episodes"),
+    brain.from("deep_sleep_runs").select("ran_at, agent_id, episodes_processed, entities_created, edges_created, findings_created").order("ran_at", { ascending: false }).limit(1),
   ]);
 
   const agentBySlug = new Map<string, string>();
@@ -98,17 +152,50 @@ async function loadHudData() {
     .sort((a, b) => (b.created_at > a.created_at ? 1 : -1))
     .slice(0, 25);
 
+  const lastDs = (lastDsRun ?? [])[0] as
+    | { ran_at: string; agent_id: string; episodes_processed: number; entities_created: number; edges_created: number; findings_created: number }
+    | undefined;
+
+  const brainStats: BrainStats = {
+    episodes: episodeCount ?? 0,
+    entities: entityCount ?? 0,
+    edges: edgeCount ?? 0,
+    findings: findingCountTotal ?? 0,
+    deep_sleep_runs: dsRunCount ?? 0,
+    briefings: briefingCount ?? 0,
+    skills: skillCount ?? 0,
+    routines: routineCount ?? 0,
+    actions: (actions ?? []).length,
+    top_entities: ((topEntities ?? []) as TopEntityRow[]).map((e) => ({
+      name: e.name,
+      type: e.type,
+      mentions: e.mention_count,
+      summary: e.summary ?? "",
+    })),
+    last_deep_sleep: lastDs
+      ? {
+          ran_at: lastDs.ran_at,
+          agent_slug: agentBySlug.get(lastDs.agent_id) ?? "?",
+          episodes_processed: lastDs.episodes_processed,
+          entities_created: lastDs.entities_created,
+          edges_created: lastDs.edges_created,
+          findings_created: lastDs.findings_created,
+        }
+      : null,
+  };
+
   return {
     fleet: (fleet ?? []) as FleetRow[],
     fleetError: fleetErr?.message ?? null,
     weekCount: weekEpisodes?.length ?? 0,
     findingsCount: findings?.length ?? 0,
     seed,
+    brainStats,
   };
 }
 
 export default async function HudPage() {
-  const { fleet, fleetError, weekCount, findingsCount, seed } = await loadHudData();
+  const { fleet, fleetError, weekCount, findingsCount, seed, brainStats } = await loadHudData();
 
   return (
     <div className="relative w-screen h-screen overflow-hidden">
@@ -151,7 +238,7 @@ export default async function HudPage() {
       </aside>
 
       {/* Click-inspect overlay — only visible when a lobe or agent is selected */}
-      <InspectorPanel />
+      <InspectorPanel brainStats={brainStats} />
 
       {/* Bottom subtitle */}
       <footer className="absolute bottom-3 inset-x-0 flex items-center justify-center text-[10px] uppercase tracking-[0.3em] text-muted2 z-20">

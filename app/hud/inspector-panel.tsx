@@ -18,6 +18,7 @@ import {
 } from "./lobes";
 import { EDGE_PAIRS } from "./brain-3d";
 import type { SeedEvent } from "./activity-feed";
+import type { BrainStats } from "./page";
 
 function relativeTime(iso: string): string {
   const t = new Date(iso).getTime();
@@ -118,7 +119,115 @@ function ActivityList({ events }: { events: SeedEvent[] }) {
   );
 }
 
-function LobeInspector({ lobeId }: { lobeId: LobeId }) {
+/** Lobe-specific stats blocks. Each block knows what to show for its
+ * lobe (entity counts for hippocampus, edge counts for concept layer,
+ * deep-sleep runs for brainster, etc.) using the brainStats snapshot
+ * loaded server-side at page render. */
+function LobeStats({
+  lobeId,
+  stats,
+}: {
+  lobeId: LobeId;
+  stats: BrainStats;
+}) {
+  if (lobeId === "memory") {
+    return (
+      <StatBlock label="Episodes total" value={stats.episodes.toString()} />
+    );
+  }
+  if (lobeId === "hippocampus") {
+    return (
+      <>
+        <StatBlock label="Entities total" value={stats.entities.toString()} />
+        {stats.top_entities.length ? (
+          <div className="mt-2">
+            <div className="text-[9px] uppercase tracking-[0.2em] text-muted2 mb-1.5">
+              Top mentioned
+            </div>
+            <ul className="space-y-1">
+              {stats.top_entities.slice(0, 6).map((e) => (
+                <li
+                  key={e.name}
+                  className="flex items-baseline gap-2 text-[11px] text-text/90"
+                >
+                  <span className="text-muted2 tabular-nums w-8 shrink-0">
+                    {e.mentions}×
+                  </span>
+                  <span className="text-muted shrink-0 uppercase tracking-wide text-[9px] w-16 truncate">
+                    {e.type}
+                  </span>
+                  <span className="truncate">{e.name}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </>
+    );
+  }
+  if (lobeId === "concept") {
+    return (
+      <StatBlock label="Edges total" value={stats.edges.toString()} />
+    );
+  }
+  if (lobeId === "brainster") {
+    const last = stats.last_deep_sleep;
+    return (
+      <>
+        <StatBlock label="Deep-sleep runs" value={stats.deep_sleep_runs.toString()} />
+        <StatBlock label="Findings total" value={stats.findings.toString()} />
+        {last ? (
+          <div className="mt-2 text-[11px] text-text/85">
+            <div className="text-[9px] uppercase tracking-[0.2em] text-muted2 mb-1">
+              Last run
+            </div>
+            <div className="text-muted">{relativeTime(last.ran_at)} ago · {last.agent_slug}</div>
+            <div className="text-muted2 mt-0.5">
+              {last.episodes_processed} eps → +{last.entities_created} ent · +
+              {last.edges_created} edges · +{last.findings_created} findings
+            </div>
+          </div>
+        ) : (
+          <div className="mt-2 text-[11px] text-muted2 italic">
+            Deep-sleep has never run on this brain.
+          </div>
+        )}
+      </>
+    );
+  }
+  if (lobeId === "motor") {
+    return <StatBlock label="Action queue rows" value={stats.actions.toString()} />;
+  }
+  if (lobeId === "language") {
+    return (
+      <>
+        <StatBlock label="Skills loaded" value={stats.skills.toString()} />
+        <StatBlock label="Routines" value={stats.routines.toString()} />
+      </>
+    );
+  }
+  if (lobeId === "prefrontal") {
+    return <StatBlock label="Briefings produced" value={stats.briefings.toString()} />;
+  }
+  return null;
+}
+
+function StatBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between py-1 border-b border-white/5 last:border-b-0">
+      <span className="text-[10px] uppercase tracking-[0.2em] text-muted2">{label}</span>
+      <span className="font-display font-bold text-base text-text tabular-nums">{value}</span>
+    </div>
+  );
+}
+
+function LobeInspector({
+  lobeId,
+  stats,
+}: {
+  lobeId: LobeId;
+  stats: BrainStats;
+}) {
   const lobe = LOBE_BY_ID[lobeId];
   const feed = useHudStreamStore((s) => s.feed);
   if (!lobe) return null;
@@ -145,6 +254,10 @@ function LobeInspector({ lobeId }: { lobeId: LobeId }) {
       <p className="text-xs text-muted leading-snug mb-3">
         {lobe.subsystem}
       </p>
+
+      <div className="mb-4">
+        <LobeStats lobeId={lobeId} stats={stats} />
+      </div>
 
       <div className="grid grid-cols-2 gap-4 mb-4 text-[11px]">
         <div>
@@ -245,7 +358,7 @@ function AgentInspector({ slug }: { slug: string }) {
   );
 }
 
-export function InspectorPanel() {
+export function InspectorPanel({ brainStats }: { brainStats: BrainStats }) {
   const selected = useHudStreamStore((s) => s.selected);
   const setSelected = useHudStreamStore((s) => s.setSelected);
   if (!selected) return null;
@@ -262,7 +375,7 @@ export function InspectorPanel() {
           ×
         </button>
         {selected.kind === "lobe" ? (
-          <LobeInspector lobeId={selected.id} />
+          <LobeInspector lobeId={selected.id} stats={brainStats} />
         ) : (
           <AgentInspector slug={selected.slug} />
         )}
